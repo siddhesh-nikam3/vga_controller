@@ -1,53 +1,28 @@
-module vga_top (
-    input  logic clk_100mhz,
+module vsync (
+    input  logic clk_25mhz,
     input  logic reset,
-    output logic hsync,
+    input  logic h_end,
     output logic vsync,
-    output logic [3:0] vga_red,
-    output logic [3:0] vga_green,
-    output logic [3:0] vga_blue
+    output logic [9:0] v_count
 );
 
-    logic clk_25mhz;
-    logic [9:0] h_count, v_count;
-    logic h_end;
-    logic video_on;
+    // the full cycle (to 525)
+    localparam V_VISIBLE = 480;
+    localparam V_FRONT   = 10;
+    localparam V_SYNC    = 2;
+    localparam V_BACK    = 33;
+    localparam V_TOTAL   = 525;
     
-    // pixel clock
-    clock_signal clk_gen (
-        .clk_100mhz(clk_100mhz),
-        .reset(reset),
-        .clk_25mhz(clk_25mhz)
-    );
+    always_ff @(posedge clk_25mhz or posedge reset) begin
+        if (reset || v_count == V_TOTAL - 1)
+            v_count <= 0;
+        else
+            v_count <= v_count + 1;
+    end
     
-    // horizontal sync
-   hsync hsync_gen (
-        .clk_25mhz(clk_25mhz),
-        .reset(reset),
-        .hsync(hsync),
-        .h_count(h_count)
-    );
-    
-    assign h_end = (h_count == 799); // fires a 1 once it ends
-    
-        // 3) vertical sync + line counter
-    vsync vsync_gen (
-        .clk_25mhz(clk_25mhz),
-        .reset(reset),
-        .h_end(h_end),
-        .vsync(vsync),
-        .v_count(v_count)
-    );
-    
-    // checks if video is on
-    assign video_on = (h_count < 640) && (v_count < 480);
-    
-    assign vga_red   = video_on ? 4'h0 : 4'h0;
-    assign vga_green = video_on ? 4'h0 : 4'h0;
-    assign vga_blue  = video_on ? 4'hF : 4'h0;
-    
-    
-
+    // same as hsync
+    // more than visible and front, but also less than visible, front and sync
+    assign vsync = ~(v_count >= (V_VISIBLE + V_FRONT) && v_count < (V_VISIBLE + V_FRONT + V_SYNC));
 
 
 endmodule
